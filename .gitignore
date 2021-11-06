@@ -136,3 +136,4 @@ pretrained_embedding/jawiki_20180420_300d.pkl
 code/__MT_model__/*
 code/__ST_model__/*
 *.swp
+*.pt
