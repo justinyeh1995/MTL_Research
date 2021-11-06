@@ -18,7 +18,7 @@ class BERT(nn.Module):
 		super(BERT, self).__init__()
 		self.loss = nn.MSELoss()
 		#self.activation = nn.ReLU()
-        self.weight = self.pretrain(lang)
+		self.weight = self.pretrain(lang)
 		self.pretrained = BertModel.from_pretrained(self.weight)
 
 		for param in self.pretrained.parameters():
