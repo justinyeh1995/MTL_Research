@@ -68,76 +68,22 @@ class BERT(nn.Module):
 	'''def main_task(self, data, doc1, doc2, count, cls_dict, mode='train'):'''
 	def main_task(self, data, doc1, doc2, count, mode='train'):
 		# content_ids
-		cls_head_conts = []
-		ratings = [] 
-		count = count.squeeze().tolist()
-		cls_dict = {}
-		for i, d in enumerate(data):
-			token_ids, attn_mask, seg_ids = d
-			token_ids = token_ids.view(1,302)
-			hidden_reps, cls_head_cont = self.pretrained(token_ids)
-			if type(count) is not list or len(count) == len(set(count)):
-				cls_head_cont = self.dropout(cls_head_cont)
-				rating = self.final(cls_head_cont)
-				ratings.append(rating)
-				cls_head_conts.append(cls_head_cont)
-			else:
-				if cls_dict.get(count[i]) == None:	
-					cls_dict[count[i]] = cls_head_cont
-					
-				cls_head_conts.append(cls_dict.get(count[i]))
-				#cls_head_cont = self.dropout(cls_dict[count[i]])
-				rating = self.final(cls_dict[count[i]])
-				'''if lang == 'en':
-					rating = F.gelu(rating)
-					rating = self.final01(rating)
-				if lang == 'en':
-					rating = F.gelu(rating)'''
-				ratings.append(rating)
-				'''tk.append(token_ids)'''
-		# torch.Size([batch_size])
-		ratings = torch.cat(ratings, dim=1)
-		'''print(tk[:3])'''
-		'''print(ratings)'''
+		encoder = self.pretrained(data)
+		hidden_reps, cls_head = encoder[0], encoder[1]
+		ratings= self.final(cls_head)
 
 		if mode == 'train':
 			# aux_ids 
 			rating1 = []			
 			rating2 = []
-		
-			for i, doc in enumerate(doc1):			
-				# aux_ids
-				token_ids, attn_mask, seg_ids = doc
-				token_ids = token_ids.view(1,302)
-				hidden_reps, cls_head_aux = self.pretrained_aux(token_ids)
-				cls_head_cat = torch.cat([cls_head_aux, cls_head_conts[i]], 1)
-				cls_head_cat = self.tolower(cls_head_cat)
-				#cls_head_cat = self.dropout_aux(cls_head_cat)
-				rating = self.final_aux(cls_head_cat)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				#rating = self.final_aux01(rating)
-				#if lang == 'en':			
-				#	rating = F.gelu(rating)
-				rating1.append(rating)
-			rating1 = torch.cat(rating1, dim = 1)
+				
+			encoder1 = self.pretrained(doc1)
+			hidden_reps, cls_head = encoder1[0], encoder1[1]
+			rating1= self.final(cls_head)
 
-			for i, doc in enumerate(doc2):			
-				# aux_ids
-				token_ids, attn_mask, seg_ids = doc
-				token_ids = token_ids.view(1,302)
-				hidden_reps, cls_head_aux = self.pretrained_aux(token_ids)
-				cls_head_cat = torch.cat([cls_head_aux, cls_head_conts[i]], 1)
-				cls_head_cat = self.tolower(cls_head_cat)
-				#cls_head_cat = self.dropout_aux(cls_head_cat)
-				rating = self.final_aux(cls_head_cat)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				#rating = self.final_aux01(rating)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				rating2.append(rating)
-			rating2 = torch.cat(rating2, dim = 1)
+			encoder2 = self.pretrained(doc2)
+			hidden_reps, cls_head = encoder2[0], encoder2[1]
+			rating2= self.final(cls_head)
 
 			rating_diff = rating1 - rating2
 					
