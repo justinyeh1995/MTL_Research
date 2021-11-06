@@ -11,9 +11,9 @@ import torch.utils.data as Data
 import training_handler
 import csv
 
-import MT_model
-import MT_model_reg
-import ST_model
+import model.MT_model
+import model.MT_model_reg
+import model.ST_model
 
 from torch.autograd import Variable
 from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler

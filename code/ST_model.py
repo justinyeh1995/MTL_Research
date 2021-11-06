@@ -14,7 +14,6 @@ if lang == 'en':
 else:
 	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
 
-print(weight)
 class BERT(nn.Module):
 	
 	def __init__(self, bert_model = BertModel, bert_weight = weight, classes=2):
@@ -43,20 +42,11 @@ class BERT(nn.Module):
 		return self.loss
 
 	def main_task(self, data):
-#		data is a list of input_ids
-		ratings = [] 
-		for d in data:
-			token_ids = d
-			token_ids = token_ids.view(1,302)
-			#hidden_reps, cls_head = self.pretrained(token_ids, attention_mask = attn_mask,token_type_ids = seg_ids)
-			hidden_reps, cls_head = self.pretrained(token_ids)
-			#print(cls_head)
-			#cls_head = self.dropout(cls_head)
-			rating = self.final(cls_head)
-			ratings.append(rating)
-		ratings = torch.cat(ratings, dim=1)
-		#ratings = torch.squeeze(ratings)
-		return cls_head, ratings[0]
+		#data is a list of input_ids
+		encoder = self.pretrained(data)
+		hidden_reps, cls_head = encoder[0], encoder[1]
+		ratings = self.final(cls_head)
+		return cls_head, ratings
 
 	def forward(self, data , mode='train'):
 		# data: contents, ys, input_ids, input_ids, input_ids, input_ids

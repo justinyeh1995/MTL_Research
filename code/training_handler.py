@@ -15,11 +15,11 @@ class handler:
 		self.lang = arg.lang
 		self.task = arg.task
 		self.sample_size = arg.sample_size
-        self.encoder = arg.encoder
 		self.device = self.device_setting( self.gpu )
 		self.hist = dict()
 		self.print_para()
-        
+		self.file = arg.file
+
 	def device_setting( self, gpu=1 ):
 		return 'cpu' if gpu == -1 else 'cuda:{}'.format(gpu)
 
@@ -42,16 +42,24 @@ class handler:
 			else:
 				string += '{}:{}\t'.format(k,val)
 		print(string)	
-
+			
 	def train( self, model_, train_loader, valid_loader, model_name='checkpoint.pt' ):
 		es = EarlyStopping(patience=10, verbose=True)
-
-		optimizer = torch.optim.Adam(model_.parameters(), lr=3e-4)
+		
+		if model_.__class__.__name__ == 'BERT':
+			print('lr=2e-5')
+			optimizer = torch.optim.Adam(model_.parameters(), lr=2e-5)
+			#if self.epoch_size > 30:
+			#	self.epoch_size = 30
+		else:
+			print('lr=3e-4')
+			optimizer = torch.optim.Adam(model_.parameters(), lr=3e-4)
+		
 		model_.to(self.device)
 		loss_func = model_.loss_func()
 
 		best_model = None
-	
+		print(f'Epoch Size: {self.epoch_size}')	
 		for epoch in range(self.epoch_size):
 			model_.train()
 			start = time.time()
@@ -62,15 +70,19 @@ class handler:
 			for i, data_ in enumerate(train_loader):
 				data_ = [_.to(self.device) for _ in data_]
 				optimizer.zero_grad()
+				#y_pred = model_(data_, mode='')
+				#loss = loss_func(y_pred, data_[1]) 
 				loss = model_(data_)
 				loss.backward()
 				train_loss += loss.item()*len(data_[0])
+				#train_acc += self.accuracy( y_pred, y_ ).item()*len(x_)
 				optimizer.step()
 				N_train += len(data_[0])
 			
 			self.hist['Epoch'] = epoch+1
 			self.hist['time'] = time.time()-start
 			self.hist['train_loss'] = train_loss/N_train	
+			#self.hist['train_acc'] = train_acc/len(train_loader.dataset)
 
 			torch.save(model_.state_dict(), model_name)
 			
@@ -103,9 +115,10 @@ class handler:
 				y_pred.extend(logit)
 				y_true.extend(data_[1])
 				test_loss += loss.item()*len(data_[0])
+				#test_acc += self.accuracy( logit, y_ ).item()*len(x_)
 				N_test+=len(data_[0])
-
 		self.hist['val_loss'] = test_loss/N_test
+		#self.hist['val_acc'] = test_acc/len(test_loader.dataset)
 		
 		return y_true , y_pred, test_loss/N_test
 
@@ -120,4 +133,3 @@ class handler:
 		_, y_pred, avg_loss = self.test( model_, test_loader )
 
 		return y_pred
-

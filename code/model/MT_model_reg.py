@@ -43,7 +43,6 @@ class BERT(nn.Module):
 
 		self.dropout = nn.Dropout(p=0.1)
 		self.final = nn.Linear(768, 1)
-		#self.final01 = nn.Linear(10, 1)	
 
 		# Aux
 		self.pretrained_aux = bert_model.from_pretrained(bert_weight)
@@ -62,85 +61,40 @@ class BERT(nn.Module):
 		self.dropout_aux = nn.Dropout(p=0.1)
 		self.tolower = nn.Linear(1536, 768)
 		self.final_aux = nn.Linear(768, 1)
-		#self.final_aux01 = nn.Linear(10, 1)	
 
 	def loss_func(self):
 		return self.loss1
 
-	'''def main_task(self, data, doc1, doc2, count, cls_dict, mode='train'):'''
-	#def main_task(self, data, doc1, doc2, count, score, mode='train'):
-	def main_task(self, data, doc1, doc2, count, mode='train'):
+	def main_task(self, data, doc1, doc2, mode='train'):
 		# content_ids
-
 		encoder = self.pretrained(data)
 		hidden_reps, cls_head = encoder[0], encoder[1]
-		ratings= self.final(cls_head)
+		ratings = self.final(cls_head)
 
 		if mode == 'train':
+			# aux_ids 
 			encoder1 = self.pretrained_aux(doc1)
 			hidden_reps, cls_head = encoder1[0], encoder1[1]
-			rating1= self.final_aux(cls_head)
-			'''return ratings[0], rating1[0]#, cls_dict'''
-			return ratings[0], rating1[0]
+			rating1 = self.final_aux(cls_head)
+			return ratings, rating1
 
 		else:
-			'''return ratings[0], cls_dict'''
-			return ratings[0]
+			return ratings
 
-	'''def forward(self, data_, cls_dict, mode='train'):'''
 	def forward(self, data_, mode='train'):
 		doc_org = data_[4]
-		#y = data_[1]
-		count = data_[6]
-		score = data_[9]
+		y = data_[1]
+		
 		if mode == 'train':
-			#aux1 = data_[5]
-			#aux2 = None
-			#label = data_[3]
-			count = data_[6]	
-			'''y_rating, y_label, cls_dict = self.main_task(doc_org, aux1, aux2, count, cls_dict, mode=mode)'''
-			y_rating, y_label = self.main_task(doc_org, None, None, count, mode=mode)
-			#y_rating, y_label = self.main_task(doc_org, aux1, aux2, count, score, mode=mode)
-			#print(self.loss1(y_rating, y))
-			#print(self.loss2(y_label.squeeze(), label))
-			#print(y_label)
-			#print(label)
-			'''y_rating.cpu().numpy()'''
-			#y.cpu().numpy()
-			#y_new = []
-			#not_duplicate = []
-			#print(len(y))
-			#print(len(count))
-			#for i, c in enumerate(count):
-			#	if c not in not_duplicate:
-			#		not_duplicate.append(c)
-			#		y_new.append(y[i].item())
-			#'''print(y_new)'''	
-			#y = torch.Tensor(y_new).cuda()
-			#'''print(count)'''
-			#'''print(y_rating)'''
-			#'''print(y)'''
-			
-			ys = [s[0] for s in score]
-			ys = torch.Tensor(ys).cuda(gpu)
-			## rethink y label & label##
-			labels = []
-			for s in score:
-				labels.extend(s[1:])
-			labels = torch.tensor(labels).cuda(gpu)
-			return self.loss1(y_rating, ys) + gamma*self.loss2(y_label.squeeze(), labels)# 
-			
-			#return  self.loss1(y_rating, y) #+ gamma*self.loss2(y_label.squeeze(), label)#, cls_dict
-			#self.loss1(y_rating, y)# + gamma*self.loss2(y_label.squeeze(), label), cls_dict
+			aux1 = data_[5]
+			aux2 = None
+			label = data_[3]
+	
+			y_rating, y_label = self.main_task(doc_org, aux1, aux2, mode=mode)
+			return self.loss1(y_rating, y) + gamma*self.loss2(y_label.squeeze(), label)
 		else:
-			'''
-			y_rating, cls_dict = self.main_task(doc_org, None, None, count, cls_dict, mode=mode)
-			#print(y_rating)
-			return y_rating.view(y_rating.size(0),) , cls_dict 
-			'''
-			y_rating = self.main_task(doc_org, None, None, count, mode=mode)
-			#print(y_rating)
-			return y_rating.view(y_rating.size(0),) 
+			y_rating = self.main_task(doc_org, None, None, mode=mode)
+			return y_rating.view(y_rating.size(0),)
 
 class MLP(nn.Module):
 	def __init__(self):

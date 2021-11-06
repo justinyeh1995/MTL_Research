@@ -43,7 +43,6 @@ class BERT(nn.Module):
 
 		self.dropout = nn.Dropout(p=0.1)
 		self.final = nn.Linear(768, 1)
-		#self.final01 = nn.Linear(10, 1)	
 
 		# Aux
 		self.pretrained_aux = bert_model.from_pretrained(bert_weight)
@@ -62,157 +61,40 @@ class BERT(nn.Module):
 		self.dropout_aux = nn.Dropout(p=0.1)
 		self.tolower = nn.Linear(1536, 768)
 		self.final_aux = nn.Linear(768, 1)
-		#self.final_aux01 = nn.Linear(10, 1)	
 
 	def loss_func(self):
 		return self.loss1
 
-	'''def main_task(self, data, doc1, doc2, count, cls_dict, mode='train'):'''
-	#def main_task(self, data, doc1, doc2, count, score, mode='train'):
-	def main_task(self, data, doc1, doc2, count, mode='train'):
+	def main_task(self, data, doc1, doc2, mode='train'):
 		# content_ids
-		cls_head_conts = []
-		ratings = []
-		tk = []
-		## dictionary at batch level ## 
-		cls_dict = {}
-		count = count.squeeze().tolist()
-		'''print(count)'''
-		'''print(cls_dict)'''	
-		not_duplicate = []
-		## one batch ##
-		for i, d in enumerate(data):
-			#token_ids, attn_mask, seg_ids = d
-			if len(list(d.size())) > 1:
-				token_ids = d[0]
-			else:
-				token_ids = d
-			token_ids = token_ids.view(1,302)
-			hidden_reps, cls_head_cont = self.pretrained(token_ids)
-			cls_head_conts.append(cls_head_cont)
-			#if mode == 'train':
-			#cls_head_cont = self.dropout(cls_head_cont)
-			rating = self.final(cls_head_cont)
-			ratings.append(rating)
-			#print(cls_head_cont)
-			'''need fix'''
-			#if type(count) is not list or len(count) == len(set(count)):
-			#	cls_head_cont = self.dropout(cls_head_cont)
-			#	rating = self.final(cls_head_cont)
-			#	ratings.append(rating)
-			#	cls_head_conts.append(cls_head_cont)
-			#		 
-			#else:
-			#	if cls_dict.get(count[i]) == None:	
-			#		cls_dict[count[i]] = cls_head_cont
-			#		#print(cls_dict[count[i]])
-			#	cls_head_conts.append(cls_dict.get(count[i]))
-			#	#print(cls_head_cont)
-			#	#cls_head_cont = self.dropout(cls_dict[count[i]])
-			#	rating = self.final(cls_head_cont)
-			#	#print(rating)
-			#	if count[i] not in not_duplicate:
-			#		not_duplicate.append(count[i])
-			#		ratings.append(rating)
-			#	'''cls_head_conts.append(cls_head_cont)'''
-			#	'''tk.append(token_ids)'''
-		# torch.Size([batch_size])
-		ratings = torch.cat(ratings, dim=1)
-		#print(ratings)
+		encoder = self.pretrained(data)
+		hidden_reps, cls_head = encoder[0], encoder[1]
+		ratings = self.final(cls_head)
 
 		if mode == 'train':
-			rating1 = []
-			#print(len(doc1)) # 32: batch-size
-			#for i, doc in enumerate(doc1):			
-			for i, d in enumerate(data):
-				# aux_ids
-				#token_ids, attn_mask, seg_ids = doc
-				
-				aux_ids = d[1:]
-				for aux in aux_ids:
-					aux = aux.view(1,302)
-					hidden_reps, cls_head_aux = self.pretrained_aux(aux)
-					cls_head_cat = torch.cat([ cls_head_conts[i], cls_head_aux ], 1)
-					cls_head_cat = self.tolower(cls_head_cat)
-					#cls_head_cat = self.dropout_aux(cls_head_cat)
-					rating = self.final_aux(cls_head_cat)
-					rating1.append(rating)
-				'''
-				token_ids = token_ids.view(1,302)
-				hidden_reps, cls_head_aux = self.pretrained_aux(token_ids)
-				cls_head_cat = torch.cat([ cls_head_conts[i], cls_head_aux ], 1)
-				cls_head_cat = self.tolower(cls_head_cat)
-				cls_head_cat = self.dropout_aux(cls_head_cat)
-				rating = self.final_aux(cls_head_cat)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				#rating = self.final_aux01(rating)
-				#if lang == 'en':			
-				#	rating = F.gelu(rating)
-				rating1.append(rating)
-				'''
-			rating1 = torch.cat(rating1, dim = 1)
-			'''return ratings[0], rating1[0]#, cls_dict'''
-			return ratings[0], rating1[0]
+			# aux_ids 
+			encoder1 = self.pretrained_aux(doc1)
+			hidden_reps, cls_head = encoder1[0], encoder1[1]
+			rating1 = self.final_aux(cls_head)
+			return ratings, rating1
 
 		else:
-			'''return ratings[0], cls_dict'''
-			return ratings[0]
+			return ratings
 
-	'''def forward(self, data_, cls_dict, mode='train'):'''
 	def forward(self, data_, mode='train'):
 		doc_org = data_[4]
-		#y = data_[1]
-		count = data_[6]
-		score = data_[9]
+		y = data_[1]
+		
 		if mode == 'train':
-			#aux1 = data_[5]
-			#aux2 = None
-			#label = data_[3]
-			count = data_[6]	
-			'''y_rating, y_label, cls_dict = self.main_task(doc_org, aux1, aux2, count, cls_dict, mode=mode)'''
-			y_rating, y_label = self.main_task(doc_org, None, None, count, mode=mode)
-			#y_rating, y_label = self.main_task(doc_org, aux1, aux2, count, score, mode=mode)
-			#print(self.loss1(y_rating, y))
-			#print(self.loss2(y_label.squeeze(), label))
-			#print(y_label)
-			#print(label)
-			'''y_rating.cpu().numpy()'''
-			#y.cpu().numpy()
-			#y_new = []
-			#not_duplicate = []
-			#print(len(y))
-			#print(len(count))
-			#for i, c in enumerate(count):
-			#	if c not in not_duplicate:
-			#		not_duplicate.append(c)
-			#		y_new.append(y[i].item())
-			#'''print(y_new)'''	
-			#y = torch.Tensor(y_new).cuda()
-			#'''print(count)'''
-			#'''print(y_rating)'''
-			#'''print(y)'''
-			
-			ys = [s[0] for s in score]
-			ys = torch.Tensor(ys).cuda(gpu)
-			## rethink y label & label##
-			labels = []
-			for s in score:
-				labels.extend(s[1:])
-			labels = torch.tensor(labels).cuda(gpu)
-			return self.loss1(y_rating, ys) + gamma*self.loss2(y_label.squeeze(), labels)# 
-			
-			#return  self.loss1(y_rating, y) #+ gamma*self.loss2(y_label.squeeze(), label)#, cls_dict
-			#self.loss1(y_rating, y)# + gamma*self.loss2(y_label.squeeze(), label), cls_dict
+			aux1 = data_[5]
+			aux2 = None
+			label = data_[3]
+	
+			y_rating, y_label = self.main_task(doc_org, aux1, aux2, mode=mode)
+			return self.loss1(y_rating, y) + gamma*self.loss2(y_label.squeeze(), label)
 		else:
-			'''
-			y_rating, cls_dict = self.main_task(doc_org, None, None, count, cls_dict, mode=mode)
-			#print(y_rating)
-			return y_rating.view(y_rating.size(0),) , cls_dict 
-			'''
-			y_rating = self.main_task(doc_org, None, None, count, mode=mode)
-			#print(y_rating)
-			return y_rating.view(y_rating.size(0),) 
+			y_rating = self.main_task(doc_org, None, None, mode=mode)
+			return y_rating.view(y_rating.size(0),)
 
 class MLP(nn.Module):
 	def __init__(self):

@@ -1,10 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from transformer import MultiHeadAtt as attention
 from transformers import BertModel
 import args
 arg = args.process_command()
 embed_size = 300
+#torch.cuda.set_device(1)
 lang = arg.lang
 
 if lang == 'en':
@@ -14,12 +16,11 @@ else:
 
 class BERT(nn.Module):
 	
-	def __init__(self, lang, classes=2):
+	def __init__(self, bert_model = BertModel, bert_weight = weight, classes=2):
 		super(BERT, self).__init__()
 		self.loss = nn.MSELoss()
 		#self.activation = nn.ReLU()
-		self.weight = self.pretrain(lang)
-		self.pretrained = BertModel.from_pretrained(self.weight)
+		self.pretrained = bert_model.from_pretrained(bert_weight)
 
 		for param in self.pretrained.parameters():
 			param.requires_grad = False
@@ -27,20 +28,16 @@ class BERT(nn.Module):
 			param.requires_grad = True
 		for param in self.pretrained.encoder.layer[-2].parameters():
 			param.requires_grad = True
+#		for param in self.pretrained.encoder.layer[-3].parameters():
+#			param.requires_grad = True
+#		for param in self.pretrained.encoder.layer[-4].parameters():
+#			param.requires_grad = True
 
 		#self.decoder = nn.Linear(768, classes)
 		self.dropout = nn.Dropout(p=0.1)
 		self.final = nn.Linear(768, 1)
 		#self.final01 = nn.Linear(300, 10)
-		#self.final11 = nn.Linear(10, 1)
-
-	def pretrain(self, lang):
-		if lang == 'en':
-			weight = 'bert-base-cased'
-		else:
-			weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
-		return weight
-        	
+		#self.final11 = nn.Linear(10, 1)	
 	def loss_func(self):
 		return self.loss
 
@@ -48,7 +45,7 @@ class BERT(nn.Module):
 		#data is a list of input_ids
 		encoder = self.pretrained(data)
 		hidden_reps, cls_head = encoder[0], encoder[1]
-		ratings= self.final(cls_head)
+		ratings = self.final(cls_head)
 		return cls_head, ratings
 
 	def forward(self, data , mode='train'):
@@ -63,6 +60,7 @@ class MLP(nn.Module):
 	def __init__(self):
 		super(MLP, self).__init__()
 		self.loss = nn.MSELoss()
+#		self.name = 'MLP'
 		self.doc0 = nn.Linear(300, 10)
 		self.doc1 = nn.Linear(10, 10)
 		self.final = nn.Linear(10, 1)
