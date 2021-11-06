@@ -14,11 +14,12 @@ else:
 
 class BERT(nn.Module):
 	
-	def __init__(self, classes=2):
+	def __init__(self, lang, classes=2):
 		super(BERT, self).__init__()
 		self.loss = nn.MSELoss()
 		#self.activation = nn.ReLU()
-		self.pretrained = BertModel.from_pretrained(bert_weight)
+        self.weight = self.pretrain(lang)
+		self.pretrained = BertModel.from_pretrained(self.weight)
 
 		for param in self.pretrained.parameters():
 			param.requires_grad = False
@@ -26,16 +27,19 @@ class BERT(nn.Module):
 			param.requires_grad = True
 		for param in self.pretrained.encoder.layer[-2].parameters():
 			param.requires_grad = True
-#		for param in self.pretrained.encoder.layer[-3].parameters():
-#			param.requires_grad = True
-#		for param in self.pretrained.encoder.layer[-4].parameters():
-#			param.requires_grad = True
 
 		#self.decoder = nn.Linear(768, classes)
 		self.dropout = nn.Dropout(p=0.1)
 		self.final = nn.Linear(768, 1)
 		#self.final01 = nn.Linear(300, 10)
-		#self.final11 = nn.Linear(10, 1)	
+		#self.final11 = nn.Linear(10, 1)
+    def pretrain(self, lang):
+        if lang == 'en':
+        	weight = 'bert-base-cased'
+        else:
+        	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
+        return weight
+        	
 	def loss_func(self):
 		return self.loss
 
@@ -47,7 +51,6 @@ class BERT(nn.Module):
 			token_ids = token_ids.view(1,302)
 			#hidden_reps, cls_head = self.pretrained(token_ids, attention_mask = attn_mask,token_type_ids = seg_ids)
 			hidden_reps, cls_head = self.pretrained(token_ids)
-			#print(cls_head)
 			#cls_head = self.dropout(cls_head)
 			rating = self.final(cls_head)
 			ratings.append(rating)
@@ -67,7 +70,6 @@ class MLP(nn.Module):
 	def __init__(self):
 		super(MLP, self).__init__()
 		self.loss = nn.MSELoss()
-#		self.name = 'MLP'
 		self.doc0 = nn.Linear(300, 10)
 		self.doc1 = nn.Linear(10, 10)
 		self.final = nn.Linear(10, 1)
