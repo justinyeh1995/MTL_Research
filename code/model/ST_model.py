@@ -33,12 +33,13 @@ class BERT(nn.Module):
 		self.final = nn.Linear(768, 1)
 		#self.final01 = nn.Linear(300, 10)
 		#self.final11 = nn.Linear(10, 1)
-    def pretrain(self, lang):
-        if lang == 'en':
-        	weight = 'bert-base-cased'
-        else:
-        	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
-        return weight
+
+	def pretrain(self, lang):
+		if lang == 'en':
+			weight = 'bert-base-cased'
+		else:
+			weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
+		return weight
         	
 	def loss_func(self):
 		return self.loss
