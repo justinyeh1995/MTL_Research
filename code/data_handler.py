@@ -31,19 +31,8 @@ def tokenize(raw_content):
 	attn_mask = [ 1 if token != '[PAD]' else 0 for token in padded_tokens ]
 	seg_ids = [0 for _ in range(len(padded_tokens))]
 	sent_ids = tokenizer.convert_tokens_to_ids(padded_tokens)
-	"""
-	token_ids = torch.tensor(sent_ids).unsqueeze(0)
-	attn_mask = torch.tensor(attn_mask).unsqueeze(0)
-	seg_ids   = torch.tensor(seg_ids).unsqueeze(0)
-	"""
 	#return [sent_ids, attn_mask, seg_ids]
 	return sent_ids
-	'''
-	input_id = [torch.tensor(tokenizer.encode(i, add_special_tokens=True, max_length=302 ,padding='max_length', truncation=True)).unsqueeze(0) for i in raw_content]	
-	'''
-	'''input_id = torch.tensor(tokenizer.encode(raw_contnent, add_special_tokens=True, max_length=302 ,padding='max_length', truncation=True))	
-
-	return input_id'''
 	
 def set_embedding(embedding):
 	global wv_model
@@ -73,24 +62,6 @@ def loadJSON_raw( JSON ):
 	raw_content = _['description']
 
 	return raw_content
-
-def load_data_concate( jsons, sample_size ):
-	contents = []
-	ys = []
-	input_ids = []
-
-	for i in jsons:
-		content, y, aux, aux_rating  = loadJSON(open(i))
-		raw_content = loadJSON_raw(open(i))
-		ys.append(y)
-		aux_pair_org = list(zip(aux, aux_rating))
-		for j in aux_pair_org[:sample_size]:
-			raw_content = raw_content + j[0]
-		contents.append(wv_model.sentence2vec(raw_content))
-		input_ids.append(tokenize(raw_content))
-
-	return contents, ys, input_ids, input_ids, input_ids, input_ids
-
 
 def load_data( jsons ):
 	'''
