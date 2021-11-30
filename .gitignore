@@ -130,7 +130,8 @@ dmypy.json
 
 # Customize
 zllin/
-data/
+data/imdb
+data/filmark
 pretrained_embedding/model.bin
 pretrained_embedding/jawiki_20180420_300d.pkl
 code/__MT_model__/*
