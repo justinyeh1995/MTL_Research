@@ -1,20 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformer import MultiHeadAtt as attention
-## Huggin face - Tranformers ##
 from transformers import BertModel, BertConfig
 import args
-arg = args.process_command()
-lang = arg.lang
-
-if lang == 'en':
-	weight = 'bert-base-cased'
-else:
-	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
-
 embed_size = 300
 gamma = 1
+weight = 'bert-base-cased'
+if args.process_command().lang == 'jp':
+	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
 
 class BERT(nn.Module):
 	
@@ -22,8 +15,6 @@ class BERT(nn.Module):
 		super(BERT, self).__init__()
 		self.loss1 = nn.MSELoss()
 		self.loss2 = nn.BCEWithLogitsLoss()
-
-		#self.activation = nn.ReLU()
 		
 		self.pretrained = bert_model.from_pretrained(bert_weight)
 
@@ -33,15 +24,9 @@ class BERT(nn.Module):
 			param.requires_grad = True
 		for param in self.pretrained.encoder.layer[-2].parameters():
 			param.requires_grad = True
-#		for param in self.pretrained.encoder.layer[-3].parameters():
-#			param.requires_grad = True
-#		for param in self.pretrained.encoder.layer[-4].parameters():
-#			param.requires_grad = True
 
-		#self.decoder = nn.Linear(768, classes)
 		self.dropout = nn.Dropout(p=0.1)		
 		self.final = nn.Linear(768, 1)
-		#self.final01 = nn.Linear(10, 1)
 
 		self.pretrained_aux = bert_model.from_pretrained(bert_weight)
 
@@ -51,104 +36,37 @@ class BERT(nn.Module):
 			param.requires_grad = True
 		for param in self.pretrained_aux.encoder.layer[-2].parameters():
 			param.requires_grad = True
-#		for param in self.pretrained_aux.encoder.layer[-3].parameters():
-#			param.requires_grad = True
-#		for param in self.pretrained_aux.encoder.layer[-4].parameters():
-#			param.requires_grad = True
 
-		#self.decoder = nn.Linear(768, classes)
 		self.dropout_aux = nn.Dropout(p=0.1)
 		self.tolower = nn.Linear(1536, 768)
 		self.final_aux = nn.Linear(768, 1)
-		#self.final_aux01 = nn.Linear(10, 1)
 	
 	def loss_func(self):
 		return self.loss1
 
-	'''def main_task(self, data, doc1, doc2, count, cls_dict, mode='train'):'''
 	def main_task(self, data, doc1, doc2, count, mode='train'):
 		# content_ids
-		cls_head_conts = []
-		ratings = [] 
-		count = count.squeeze().tolist()
-		cls_dict = {}
-		for i, d in enumerate(data):
-			token_ids, attn_mask, seg_ids = d
-			token_ids = token_ids.view(1,302)
-			hidden_reps, cls_head_cont = self.pretrained(token_ids)
-			if type(count) is not list or len(count) == len(set(count)):
-				cls_head_cont = self.dropout(cls_head_cont)
-				rating = self.final(cls_head_cont)
-				ratings.append(rating)
-				cls_head_conts.append(cls_head_cont)
-			else:
-				if cls_dict.get(count[i]) == None:	
-					cls_dict[count[i]] = cls_head_cont
-					
-				cls_head_conts.append(cls_dict.get(count[i]))
-				#cls_head_cont = self.dropout(cls_dict[count[i]])
-				rating = self.final(cls_dict[count[i]])
-				'''if lang == 'en':
-					rating = F.gelu(rating)
-					rating = self.final01(rating)
-				if lang == 'en':
-					rating = F.gelu(rating)'''
-				ratings.append(rating)
-				'''tk.append(token_ids)'''
-		# torch.Size([batch_size])
-		ratings = torch.cat(ratings, dim=1)
-		'''print(tk[:3])'''
-		'''print(ratings)'''
+		encoder = self.pretrained(data)
+		hidden_reps, cls_head = encoder[0], encoder[1]
+		ratings = self.final(cls_head)
 
 		if mode == 'train':
 			# aux_ids 
-			rating1 = []			
-			rating2 = []
-		
-			for i, doc in enumerate(doc1):			
-				# aux_ids
-				token_ids, attn_mask, seg_ids = doc
-				token_ids = token_ids.view(1,302)
-				hidden_reps, cls_head_aux = self.pretrained_aux(token_ids)
-				cls_head_cat = torch.cat([cls_head_aux, cls_head_conts[i]], 1)
-				cls_head_cat = self.tolower(cls_head_cat)
-				#cls_head_cat = self.dropout_aux(cls_head_cat)
-				rating = self.final_aux(cls_head_cat)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				#rating = self.final_aux01(rating)
-				#if lang == 'en':			
-				#	rating = F.gelu(rating)
-				rating1.append(rating)
-			rating1 = torch.cat(rating1, dim = 1)
+			encoder1 = self.pretrained_aux(doc1)
+			hidden_reps, cls_head = encoder1[0], encoder1[1]
+			rating1 = self.final_aux(cls_head)
 
-			for i, doc in enumerate(doc2):			
-				# aux_ids
-				token_ids, attn_mask, seg_ids = doc
-				token_ids = token_ids.view(1,302)
-				hidden_reps, cls_head_aux = self.pretrained_aux(token_ids)
-				cls_head_cat = torch.cat([cls_head_aux, cls_head_conts[i]], 1)
-				cls_head_cat = self.tolower(cls_head_cat)
-				#cls_head_cat = self.dropout_aux(cls_head_cat)
-				rating = self.final_aux(cls_head_cat)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				#rating = self.final_aux01(rating)
-				#if lang == 'en':
-				#	rating = F.gelu(rating)
-				rating2.append(rating)
-			rating2 = torch.cat(rating2, dim = 1)
+			encoder2 = self.pretrained_aux(doc2)
+			hidden_reps, cls_head = encoder2[0], encoder2[1]
+			rating2 = self.final_aux(cls_head)
 
 			rating_diff = rating1 - rating2
 					
-			'''return ratings[0], rating_diff[0], cls_dict'''
 			return ratings[0], rating_diff[0]
 		else:
-			'''return ratings[0], cls_dict'''
 			return ratings[0]
 
 
-	'''def forward(self, data_, cls_dict, mode='train'):'''
 	def forward(self, data_, mode='train'):
 		doc_org = data_[5]
 		y = data_[1]
@@ -158,21 +76,12 @@ class BERT(nn.Module):
 			aux1 = data_[6]
 			aux2 = data_[7]
 			label = data_[4]
-			'''count = data_[8]'''
 
-			'''y_rating, y_label, cls_dict = self.main_task(doc_org, aux1, aux2, count,cls_dict,  mode=mode)'''
 			y_rating, y_label, cls_dict = self.main_task(doc_org, aux1, aux2, count, mode=mode)
-			#print(self.loss1(y_rating, y))
-			#print(self.loss2(y_label.squeeze(), label))
-			#print(y_label)
-			#print(label)
 			return  self.loss1(y_rating, y) + gamma*self.loss2(y_label.squeeze(), label)
-			'''return  self.loss1(y_rating, y)# + gamma*self.loss2(y_label.squeeze(), label), cls_dict'''
+
 		else:
-			'''y_rating, cls_dict = self.main_task(doc_org, None, None, count, cls_dict, mode=mode)'''
 			y_rating, cls_dict = self.main_task(doc_org, None, None, count, mode=mode)
-			#print(y_rating)
-			'''return y_rating.view(y_rating.size(0),) , cls_dict''' 
 			return y_rating.view(y_rating.size(0),)
 			
 class MLP(nn.Module):
@@ -440,5 +349,4 @@ class Att(nn.Module):
 			y_rating = self.main_task(doc_org, None, None, mode=mode)
 			
 			return y_rating.view(y_rating.size(0),)
-
 

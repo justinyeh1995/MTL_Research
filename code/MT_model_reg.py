@@ -1,24 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformer import MultiHeadAtt as attention
-
-## Huggin face - Tranformers ##
 from transformers import BertModel, BertConfig
 import args
-arg = args.process_command()
-lang = arg.lang
-gpu = arg.gpu
-
-if lang == 'en':
-	weight = 'bert-base-cased'
-else:
-	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
-
-
-#torch.cuda.set_device(1)
 embed_size = 300
 gamma = 1
+weight = 'bert-base-cased'
+if args.process_command().lang == 'jp':
+	weight = 'cl-tohoku/bert-base-japanese-whole-word-masking'
 
 class BERT(nn.Module):
 	
@@ -36,10 +25,6 @@ class BERT(nn.Module):
 			param.requires_grad = True
 		for param in self.pretrained.encoder.layer[-2].parameters():
 			param.requires_grad = True
-#		for param in self.pretrained.encoder.layer[-3].parameters():
-#			param.requires_grad = True
-#		for param in self.pretrained.encoder.layer[-4].parameters():
-#			param.requires_grad = True
 
 		self.dropout = nn.Dropout(p=0.1)
 		self.final = nn.Linear(768, 1)
@@ -53,14 +38,9 @@ class BERT(nn.Module):
 			param.requires_grad = True
 		for param in self.pretrained_aux.encoder.layer[-2].parameters():
 			param.requires_grad = True
-#		for param in self.pretrained_aux.encoder.layer[-3].parameters():
-#			param.requires_grad = True
-#		for param in self.pretrained_aux.encoder.layer[-4].parameters():
-#			param.requires_grad = True
 
 		self.dropout_aux = nn.Dropout(p=0.1)
-		self.tolower = nn.Linear(1536, 768)
-		self.final_aux = nn.Linear(768, 1)
+		self.final_aux = nn.Linear(1536, 1)
 
 	def loss_func(self):
 		return self.loss1
@@ -69,17 +49,20 @@ class BERT(nn.Module):
 		# content_ids
 		encoder = self.pretrained(data)
 		hidden_reps, cls_head = encoder[0], encoder[1]
-		ratings = self.final(cls_head)
+		cls_head_drop = self.dropout(cls_head)
+		ratings = self.final(cls_head_drop)
 
 		if mode == 'train':
 			# aux_ids 
 			encoder1 = self.pretrained_aux(doc1)
-			hidden_reps, cls_head = encoder1[0], encoder1[1]
-			rating1 = self.final_aux(cls_head)
-			return ratings, rating1
+			hidden_reps, cls_head_aux = encoder1[0], encoder1[1]
+			cls_head_cat = torch.cat((cls_head, cls_head_aux), dim=1)
+			cls_head_cat_drop = self.dropout_aux(cls_head_cat)
+			rating1 = self.final_aux(cls_head_cat_drop)
+			return ratings.squeeze(), rating1.squeeze()
 
 		else:
-			return ratings
+			return ratings.squeeze()
 
 	def forward(self, data_, mode='train'):
 		doc_org = data_[4]
@@ -91,7 +74,7 @@ class BERT(nn.Module):
 			label = data_[3]
 	
 			y_rating, y_label = self.main_task(doc_org, aux1, aux2, mode=mode)
-			return self.loss1(y_rating, y) + gamma*self.loss2(y_label.squeeze(), label)
+			return self.loss1(y_rating, y) + gamma*self.loss2(y_label, label)
 		else:
 			y_rating = self.main_task(doc_org, None, None, mode=mode)
 			return y_rating.view(y_rating.size(0),)
